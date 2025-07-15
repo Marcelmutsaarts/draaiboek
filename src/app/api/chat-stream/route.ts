@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('Received request body:', body)
     
-    const { message, image, images, useGrounding = true, aiModel = 'smart' } = body
+    const { message, image, images, useGrounding = true, aiModel = 'smart', systemPrompt } = body
 
     if (!message) {
       return NextResponse.json(
@@ -94,8 +94,14 @@ export async function POST(request: NextRequest) {
               }
             })
             
+            const contents = systemPrompt ? [
+              { role: 'user', parts: [{ text: systemPrompt }] },
+              { role: 'model', parts: [{ text: 'Ik begrijp de context en rol. Hoe kan ik je helpen?' }] },
+              { role: 'user', parts: [{ text: message }, ...imageParts] }
+            ] : [{ role: 'user', parts: [{ text: message }, ...imageParts] }]
+            
             result = await generateStreamWithFallback({
-              contents: [{ role: 'user', parts: [{ text: message }, ...imageParts] }],
+              contents: contents,
               tools: tools
             })
           } else if (image) {
@@ -109,14 +115,26 @@ export async function POST(request: NextRequest) {
               }
             }
             
+            const contents = systemPrompt ? [
+              { role: 'user', parts: [{ text: systemPrompt }] },
+              { role: 'model', parts: [{ text: 'Ik begrijp de context en rol. Hoe kan ik je helpen?' }] },
+              { role: 'user', parts: [{ text: message }, imagePart] }
+            ] : [{ role: 'user', parts: [{ text: message }, imagePart] }]
+            
             result = await generateStreamWithFallback({
-              contents: [{ role: 'user', parts: [{ text: message }, imagePart] }],
+              contents: contents,
               tools: tools
             })
           } else {
             // Text only
+            const contents = systemPrompt ? [
+              { role: 'user', parts: [{ text: systemPrompt }] },
+              { role: 'model', parts: [{ text: 'Ik begrijp de context en rol. Hoe kan ik je helpen?' }] },
+              { role: 'user', parts: [{ text: message }] }
+            ] : [{ role: 'user', parts: [{ text: message }] }]
+            
             result = await generateStreamWithFallback({
-              contents: [{ role: 'user', parts: [{ text: message }] }],
+              contents: contents,
               tools: tools
             })
           }
