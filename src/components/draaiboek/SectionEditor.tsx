@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { DraaiboekData, DraaiboekSection } from '@/types/draaiboek'
 import AIHelpPanel from './AIHelpPanel'
 import TableEditor from './TableEditor'
@@ -1073,6 +1073,7 @@ MOND-TOT-MOND:
 
 export default function SectionEditor({ section, subsection, data, onUpdate, onNestedUpdate }: Props) {
   const [isAIHelpOpen, setIsAIHelpOpen] = useState(false)
+  const editorRef = useRef<HTMLDivElement>(null)
   
   const config = subsectionConfig[subsection]
   if (!config) return null
@@ -1089,32 +1090,83 @@ export default function SectionEditor({ section, subsection, data, onUpdate, onN
     return (data.sections[section] as any)[subsection] || ''
   }
 
+  // This effect correctly syncs the editor content.
+  // It only updates the DOM if the content from props is different from the editor's current content,
+  // preventing the cursor jump issue during typing.
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor) return
+
+    const valueFromProps = getCurrentValue()
+    
+    if (editor.innerHTML !== valueFromProps) {
+      const placeholderHtml = `<p style="color: #999; font-style: italic; margin: 0;">${config.placeholder}</p>`
+      editor.innerHTML = valueFromProps || placeholderHtml
+    }
+  }, [section, subsection, data]) // Re-run when navigation or data changes
+
   const handleTextChange = (value: string) => {
+    const placeholderHtml = `<p style="color: #999; font-style: italic; margin: 0;">${config.placeholder}</p>`
+    // Do not save the placeholder text itself
+    const finalValue = value.includes(placeholderHtml) ? '' : value
+
     if (section === 'planning' && ['opening', 'dagprogramma', 'schema', 'afsluiting'].includes(subsection)) {
-      onNestedUpdate(section, 'sesWs', subsection, value)
+      onNestedUpdate(section, 'sesWs', subsection, finalValue)
     } else if (section === 'planning' && subsection === 'sesWs') {
-      onNestedUpdate(section, 'sesWs', 'algemeen', value)
+      onNestedUpdate(section, 'sesWs', 'algemeen', finalValue)
     } else {
-      onUpdate(section, subsection, value)
+      onUpdate(section, subsection, finalValue)
     }
   }
 
+  const insertContent = (contentToInsert: string) => {
+    const editor = editorRef.current
+    if (!editor) return
+
+    const placeholderHtml = `<p style="color: #999; font-style: italic; margin: 0;">${config.placeholder}</p>`
+    let currentHtml = editor.innerHTML
+
+    // If editor only contains placeholder, replace it
+    if (currentHtml.includes(placeholderHtml)) {
+      currentHtml = ''
+    }
+    
+    // Add space if there is existing content
+    const separator = currentHtml && currentHtml.trim() !== '' ? '<br><br>' : ''
+    
+    const newHtml = currentHtml + separator + contentToInsert
+    editor.innerHTML = newHtml
+    handleTextChange(newHtml) // Trigger state update
+  }
+
   const handleInsertExample = () => {
-    const currentValue = getCurrentValue()
-    const newValue = config.example + (currentValue ? '\n\n' + currentValue : '')
-    handleTextChange(newValue)
+    insertContent(config.example)
   }
 
   const handleAIContentInsert = (content: string) => {
-    const currentValue = getCurrentValue()
-    const newValue = currentValue + (currentValue ? '\n\n' : '') + content
-    handleTextChange(newValue)
+    insertContent(content)
   }
 
   const handleTableInsert = (tableHtml: string) => {
-    const currentValue = getCurrentValue()
-    const newValue = currentValue + (currentValue ? '\n\n' : '') + tableHtml
-    handleTextChange(newValue)
+    insertContent(tableHtml)
+  }
+
+  const handleFocus = (e: React.FocusEvent<HTMLDivElement>) => {
+    const editor = e.currentTarget
+    const placeholderHtml = `<p style="color: #999; font-style: italic; margin: 0;">${config.placeholder}</p>`
+    if (editor.innerHTML.includes(placeholderHtml)) {
+      editor.innerHTML = ''
+    }
+  }
+
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    const editor = e.currentTarget
+    if (!editor.innerHTML || editor.innerHTML.trim() === '' || editor.innerHTML === '<br>') {
+      const placeholderHtml = `<p style="color: #999; font-style: italic; margin: 0;">${config.placeholder}</p>`
+      editor.innerHTML = placeholderHtml
+    }
+    // Always trigger a save on blur to catch the latest state
+    handleTextChange(editor.innerHTML)
   }
 
   return (
@@ -1156,21 +1208,14 @@ export default function SectionEditor({ section, subsection, data, onUpdate, onN
           <div className="h-full">
             <div className="w-full h-full border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
               <div
+                ref={editorRef}
                 contentEditable
                 suppressContentEditableWarning={true}
                 onInput={(e) => handleTextChange(e.currentTarget.innerHTML)}
-                onBlur={(e) => handleTextChange(e.currentTarget.innerHTML)}
+                onBlur={handleBlur}
+                onFocus={handleFocus}
                 className="w-full h-full p-4 outline-none overflow-y-auto"
                 style={{ minHeight: '400px' }}
-                dangerouslySetInnerHTML={{ 
-                  __html: getCurrentValue() || `<p style="color: #999; font-style: italic; margin: 0;">${config.placeholder}</p>` 
-                }}
-                onFocus={(e) => {
-                  const content = e.currentTarget.innerHTML
-                  if (content.includes(config.placeholder)) {
-                    e.currentTarget.innerHTML = ''
-                  }
-                }}
               />
             </div>
           </div>
