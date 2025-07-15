@@ -1074,7 +1074,9 @@ MOND-TOT-MOND:
 export default function SectionEditor({ section, subsection, data, onUpdate, onNestedUpdate }: Props) {
   const [isAIHelpOpen, setIsAIHelpOpen] = useState(false)
   const editorRef = useRef<HTMLDivElement>(null)
-  
+  // Nieuw: state voor contextuele tabelknoppen
+  const [tableControls, setTableControls] = useState<{ visible: boolean, top: number, left: number, cell: HTMLTableCellElement | null }>({ visible: false, top: 0, left: 0, cell: null })
+
   const config = subsectionConfig[subsection]
   if (!config) return null
 
@@ -1169,6 +1171,92 @@ export default function SectionEditor({ section, subsection, data, onUpdate, onN
     handleTextChange(editor.innerHTML)
   }
 
+  // Detecteer selectie in tabelcel en toon knoppen
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const selection = window.getSelection()
+      if (!selection || selection.rangeCount === 0) {
+        setTableControls(c => c.visible ? { ...c, visible: false } : c)
+        return
+      }
+      const range = selection.getRangeAt(0)
+      let node = range.startContainer as HTMLElement | null
+      // Zoek omhoog naar een td of th
+      while (node && node.nodeType === 3) node = node.parentElement
+      let cell: HTMLTableCellElement | null = null
+      let table: HTMLTableElement | null = null
+      let found = false
+      let el = node
+      while (el && el !== editorRef.current) {
+        if (el instanceof HTMLTableCellElement) {
+          cell = el
+        }
+        if (el instanceof HTMLTableElement) {
+          table = el
+          found = true
+          break
+        }
+        el = el?.parentElement || null
+      }
+      if (found && cell && table && editorRef.current && editorRef.current.contains(cell)) {
+        // Bepaal positie van de cel tov de editor
+        const rect = cell.getBoundingClientRect()
+        const editorRect = editorRef.current.getBoundingClientRect()
+        setTableControls({
+          visible: true,
+          top: rect.top - editorRect.top + editorRef.current.scrollTop,
+          left: rect.left - editorRect.left + editorRef.current.scrollLeft,
+          cell
+        })
+      } else {
+        setTableControls(c => c.visible ? { ...c, visible: false } : c)
+      }
+    }
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => document.removeEventListener('selectionchange', handleSelectionChange)
+  }, [])
+
+  // Voeg een rij toe onder de geselecteerde cel
+  const handleAddRow = () => {
+    if (!tableControls.cell) return
+    const row = tableControls.cell.parentElement as HTMLTableRowElement
+    const table = row.parentElement?.parentElement as HTMLTableElement
+    if (!row || !table) return
+    const newRow = row.cloneNode(true) as HTMLTableRowElement
+    // Maak alle cellen leeg (behalve headers)
+    Array.from(newRow.cells).forEach((cell, i) => {
+      if (!(cell as HTMLTableCellElement).hasAttribute('colspan')) {
+        cell.innerHTML = ''
+      }
+    })
+    row.parentElement?.insertBefore(newRow, row.nextSibling)
+    // Update editor state
+    if (editorRef.current) handleTextChange(editorRef.current.innerHTML)
+  }
+
+  // Voeg een kolom toe rechts van de geselecteerde cel
+  const handleAddCol = () => {
+    if (!tableControls.cell) return
+    const cellIndex = tableControls.cell.cellIndex
+    const table = tableControls.cell.closest('table') as HTMLTableElement
+    if (!table) return
+    Array.from(table.rows).forEach((row, i) => {
+      const isHeader = row.cells[cellIndex]?.tagName === 'TH'
+      const newCell = document.createElement(isHeader ? 'th' : 'td')
+      newCell.innerHTML = ''
+      newCell.style.border = row.cells[cellIndex]?.style.border || '1px solid #ddd'
+      newCell.style.padding = row.cells[cellIndex]?.style.padding || '8px'
+      if (isHeader) {
+        newCell.style.backgroundColor = row.cells[cellIndex]?.style.backgroundColor || '#f5f5f5'
+        newCell.style.fontWeight = 'bold'
+        newCell.style.textAlign = 'left'
+      }
+      row.insertBefore(newCell, row.cells[cellIndex + 1] || null)
+    })
+    // Update editor state
+    if (editorRef.current) handleTextChange(editorRef.current.innerHTML)
+  }
+
   return (
     <>
       <div className="h-full flex flex-col">
@@ -1206,7 +1294,39 @@ export default function SectionEditor({ section, subsection, data, onUpdate, onN
         {/* Content Area */}
         <div className="flex-1 p-6">
           <div className="h-full">
-            <div className="w-full h-full border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
+            <div className="w-full h-full border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent" style={{position:'relative'}}>
+              {/* Subtiele tabelknoppen */}
+              {tableControls.visible && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: tableControls.top - 32,
+                    left: tableControls.left,
+                    zIndex: 10,
+                    display: 'flex',
+                    gap: 4
+                  }}
+                >
+                  <button
+                    type="button"
+                    onMouseDown={e => { e.preventDefault(); handleAddRow() }}
+                    title="Rij toevoegen"
+                    className="bg-white border border-gray-300 rounded-full shadow px-2 py-1 text-xs text-gray-600 hover:bg-green-100 hover:text-green-700 transition-all"
+                    style={{opacity:0.85}}
+                  >
+                    + rij
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={e => { e.preventDefault(); handleAddCol() }}
+                    title="Kolom toevoegen"
+                    className="bg-white border border-gray-300 rounded-full shadow px-2 py-1 text-xs text-gray-600 hover:bg-blue-100 hover:text-blue-700 transition-all"
+                    style={{opacity:0.85}}
+                  >
+                    + kolom
+                  </button>
+                </div>
+              )}
               <div
                 ref={editorRef}
                 contentEditable

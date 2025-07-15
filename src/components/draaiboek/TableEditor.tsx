@@ -224,6 +224,34 @@ export default function TableEditor({ onInsertTable }: TableEditorProps) {
     setIsOpen(false)
   }
 
+  // Voeg een rij toe onderaan
+  const handleAddRow = () => {
+    if (tableData.length === 0) return
+    const newRow: TableCell[] = []
+    for (let j = 0; j < cols; j++) {
+      newRow.push({
+        content: `Cel ${tableData.length + 1}-${j + 1}`,
+        isHeader: firstRowHeader && tableData.length === 0
+      })
+    }
+    setTableData([...tableData, newRow])
+    setRows(rows + 1)
+  }
+
+  // Voeg een kolom toe rechts
+  const handleAddCol = () => {
+    if (tableData.length === 0) return
+    const newTableData = tableData.map((row, i) => [
+      ...row,
+      {
+        content: i === 0 && firstRowHeader ? `Header ${row.length + 1}` : `Cel ${i + 1}-${row.length + 1}`,
+        isHeader: i === 0 && firstRowHeader
+      }
+    ])
+    setTableData(newTableData)
+    setCols(cols + 1)
+  }
+
   if (!isOpen) {
     return (
       <button
@@ -314,6 +342,22 @@ export default function TableEditor({ onInsertTable }: TableEditorProps) {
         {tableData.length > 0 && (
           <div className="mb-4">
             <h4 className="font-medium mb-2">Tabel bewerken:</h4>
+            <div className="flex space-x-2 mb-2">
+              <button
+                type="button"
+                onClick={handleAddRow}
+                className="px-2 py-1 bg-green-100 hover:bg-green-200 rounded text-xs border border-green-300"
+              >
+                + Rij toevoegen
+              </button>
+              <button
+                type="button"
+                onClick={handleAddCol}
+                className="px-2 py-1 bg-blue-100 hover:bg-blue-200 rounded text-xs border border-blue-300"
+              >
+                + Kolom toevoegen
+              </button>
+            </div>
             <div className="border rounded overflow-hidden">
               <table className="w-full">
                 <tbody>

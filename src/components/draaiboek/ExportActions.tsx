@@ -2,7 +2,10 @@
 
 import { useState } from 'react'
 import { DraaiboekData } from '@/types/draaiboek'
-import { Document, Paragraph, TextRun, HeadingLevel } from 'docx'
+import { Document, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType } from 'docx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import htmlDocx from 'html-docx-js/dist/html-docx'
 
 interface Props {
   data: DraaiboekData
@@ -10,6 +13,26 @@ interface Props {
 
 export default function ExportActions({ data }: Props) {
   const [isExporting, setIsExporting] = useState(false)
+
+  // Convert HTML to plain text for PDF
+  const stripHtml = (html: string): string => {
+    // Convert tables to text format
+    let text = html.replace(/<table[^>]*>/gi, '\n\n')
+    text = text.replace(/<\/table>/gi, '\n\n')
+    text = text.replace(/<tr[^>]*>/gi, '')
+    text = text.replace(/<\/tr>/gi, '\n')
+    text = text.replace(/<t[dh][^>]*>/gi, '')
+    text = text.replace(/<\/t[dh]>/gi, '\t')
+    
+    // Remove other HTML tags
+    text = text.replace(/<[^>]*>/g, '')
+    
+    // Clean up extra whitespace
+    text = text.replace(/\n\s*\n/g, '\n\n')
+    text = text.replace(/\t+/g, '\t')
+    
+    return text.trim()
+  }
 
   // Convert draaiboek data to formatted text
   const formatDraaiboekText = (): string => {
@@ -21,52 +44,52 @@ export default function ExportActions({ data }: Props) {
       {
         title: '1. INLEIDING',
         content: `
-${data.sections.inleiding.algemeneInleiding ? `Algemene inleiding:\n${data.sections.inleiding.algemeneInleiding}\n\n` : ''}
-${data.sections.inleiding.verantwoordingActiviteiten ? `Verantwoording van de keuze van de activiteiten:\n${data.sections.inleiding.verantwoordingActiviteiten}\n\n` : ''}
-${data.sections.inleiding.verantwoordingPartner ? `Verantwoording van de keuze van de externe samenwerkingspartner:\n${data.sections.inleiding.verantwoordingPartner}\n\n` : ''}
-${data.sections.inleiding.doelstellingKinderen ? `Doelstelling voor de kinderen:\n${data.sections.inleiding.doelstellingKinderen}\n\n` : ''}
-${data.sections.inleiding.persoonlijkeDoelstelling ? `Persoonlijke doelstelling voor de projectleden:\n${data.sections.inleiding.persoonlijkeDoelstelling}\n\n` : ''}
+${data.sections.inleiding.algemeneInleiding ? `Algemene inleiding:\n${stripHtml(data.sections.inleiding.algemeneInleiding)}\n\n` : ''}
+${data.sections.inleiding.verantwoordingActiviteiten ? `Verantwoording van de keuze van de activiteiten:\n${stripHtml(data.sections.inleiding.verantwoordingActiviteiten)}\n\n` : ''}
+${data.sections.inleiding.verantwoordingPartner ? `Verantwoording van de keuze van de externe samenwerkingspartner:\n${stripHtml(data.sections.inleiding.verantwoordingPartner)}\n\n` : ''}
+${data.sections.inleiding.doelstellingKinderen ? `Doelstelling voor de kinderen:\n${stripHtml(data.sections.inleiding.doelstellingKinderen)}\n\n` : ''}
+${data.sections.inleiding.persoonlijkeDoelstelling ? `Persoonlijke doelstelling voor de projectleden:\n${stripHtml(data.sections.inleiding.persoonlijkeDoelstelling)}\n\n` : ''}
         `
       },
       {
         title: '2. PLANNING VOOR-TIJDENS-NA DE ACTIVITEIT',
         content: `
-${data.sections.planning.fasenPlanning ? `Planning van alle activiteiten in voorbereidingsfase, uitvoeringsfase en nazorgfase:\n${data.sections.planning.fasenPlanning}\n\n` : ''}
-${data.sections.planning.prStrategie ? `PR van de naschoolse activiteit:\n${data.sections.planning.prStrategie}\n\n` : ''}
-${data.sections.planning.globaalDagprogramma ? `Globale schets van dagprogramma voor de deelnemers:\n${data.sections.planning.globaalDagprogramma}\n\n` : ''}
+${data.sections.planning.fasenPlanning ? `Planning van alle activiteiten in voorbereidingsfase, uitvoeringsfase en nazorgfase:\n${stripHtml(data.sections.planning.fasenPlanning)}\n\n` : ''}
+${data.sections.planning.prStrategie ? `PR van de naschoolse activiteit:\n${stripHtml(data.sections.planning.prStrategie)}\n\n` : ''}
+${data.sections.planning.globaalDagprogramma ? `Globale schets van dagprogramma voor de deelnemers:\n${stripHtml(data.sections.planning.globaalDagprogramma)}\n\n` : ''}
 ${data.sections.planning.sesWs.opening || data.sections.planning.sesWs.dagprogramma || data.sections.planning.sesWs.schema || data.sections.planning.sesWs.afsluiting ? `Gedetailleerde planning van dagprogramma m.b.v. de 6 W's:\n` : ''}
-${data.sections.planning.sesWs.opening ? `Opening:\n${data.sections.planning.sesWs.opening}\n\n` : ''}
-${data.sections.planning.sesWs.dagprogramma ? `Dagprogramma:\n${data.sections.planning.sesWs.dagprogramma}\n\n` : ''}
-${data.sections.planning.sesWs.schema ? `Schema met uitgewerkte activiteiten en locatie:\n${data.sections.planning.sesWs.schema}\n\n` : ''}
-${data.sections.planning.sesWs.afsluiting ? `Afsluiting:\n${data.sections.planning.sesWs.afsluiting}\n\n` : ''}
-${data.sections.planning.communicatiematrix ? `Communicatiematrix:\n${data.sections.planning.communicatiematrix}\n\n` : ''}
+${data.sections.planning.sesWs.opening ? `Opening:\n${stripHtml(data.sections.planning.sesWs.opening)}\n\n` : ''}
+${data.sections.planning.sesWs.dagprogramma ? `Dagprogramma:\n${stripHtml(data.sections.planning.sesWs.dagprogramma)}\n\n` : ''}
+${data.sections.planning.sesWs.schema ? `Schema met uitgewerkte activiteiten en locatie:\n${stripHtml(data.sections.planning.sesWs.schema)}\n\n` : ''}
+${data.sections.planning.sesWs.afsluiting ? `Afsluiting:\n${stripHtml(data.sections.planning.sesWs.afsluiting)}\n\n` : ''}
+${data.sections.planning.communicatiematrix ? `Communicatiematrix:\n${stripHtml(data.sections.planning.communicatiematrix)}\n\n` : ''}
         `
       },
       {
         title: '3. GEDETAILLEERDE UITWERKING VAN DE ACTIVITEIT',
         content: `
-${data.sections.uitwerking.voorbereiding ? `Voorbereiding a.d.h.v. een LVF:\n${data.sections.uitwerking.voorbereiding}\n\n` : ''}
-${data.sections.uitwerking.openingAfsluiting ? `Opening en afsluiting concreet uitgewerkt:\n${data.sections.uitwerking.openingAfsluiting}\n\n` : ''}
-${data.sections.uitwerking.verantwoordelijkheden ? `Verantwoordelijkheden per onderdeel:\n${data.sections.uitwerking.verantwoordelijkheden}\n\n` : ''}
-${data.sections.uitwerking.wedstrijdschemas ? `Wedstrijdschema's (indien van toepassing):\n${data.sections.uitwerking.wedstrijdschemas}\n\n` : ''}
-${data.sections.uitwerking.spelregels ? `Spelregels:\n${data.sections.uitwerking.spelregels}\n\n` : ''}
-${data.sections.uitwerking.materiaallijst ? `Gedetailleerde materiaallijst:\n${data.sections.uitwerking.materiaallijst}\n\n` : ''}
+${data.sections.uitwerking.voorbereiding ? `Voorbereiding a.d.h.v. een LVF:\n${stripHtml(data.sections.uitwerking.voorbereiding)}\n\n` : ''}
+${data.sections.uitwerking.openingAfsluiting ? `Opening en afsluiting concreet uitgewerkt:\n${stripHtml(data.sections.uitwerking.openingAfsluiting)}\n\n` : ''}
+${data.sections.uitwerking.verantwoordelijkheden ? `Verantwoordelijkheden per onderdeel:\n${stripHtml(data.sections.uitwerking.verantwoordelijkheden)}\n\n` : ''}
+${data.sections.uitwerking.wedstrijdschemas ? `Wedstrijdschema's (indien van toepassing):\n${stripHtml(data.sections.uitwerking.wedstrijdschemas)}\n\n` : ''}
+${data.sections.uitwerking.spelregels ? `Spelregels:\n${stripHtml(data.sections.uitwerking.spelregels)}\n\n` : ''}
+${data.sections.uitwerking.materiaallijst ? `Gedetailleerde materiaallijst:\n${stripHtml(data.sections.uitwerking.materiaallijst)}\n\n` : ''}
         `
       },
       {
         title: '4. CALAMITEITENPLAN',
         content: `
-${data.sections.calamiteitenplan.maatregelen ? `Maatregelen n.a.v. risico-analyse:\n${data.sections.calamiteitenplan.maatregelen}\n\n` : ''}
-${data.sections.calamiteitenplan.alternatiefProgramma ? `Alternatief programma:\n${data.sections.calamiteitenplan.alternatiefProgramma}\n\n` : ''}
-${data.sections.calamiteitenplan.plattegrond ? `Plattegrond:\n${data.sections.calamiteitenplan.plattegrond}\n\n` : ''}
+${data.sections.calamiteitenplan.maatregelen ? `Maatregelen n.a.v. risico-analyse:\n${stripHtml(data.sections.calamiteitenplan.maatregelen)}\n\n` : ''}
+${data.sections.calamiteitenplan.alternatiefProgramma ? `Alternatief programma:\n${stripHtml(data.sections.calamiteitenplan.alternatiefProgramma)}\n\n` : ''}
+${data.sections.calamiteitenplan.plattegrond ? `Plattegrond:\n${stripHtml(data.sections.calamiteitenplan.plattegrond)}\n\n` : ''}
         `
       },
       {
         title: '5. BIJLAGEN',
         content: `
-${data.sections.bijlagen.behoefteonderzoek ? `Behoefteonderzoek:\n${data.sections.bijlagen.behoefteonderzoek}\n\n` : ''}
-${data.sections.bijlagen.omgevingsanalyse ? `Omgevingsanalyse:\n${data.sections.bijlagen.omgevingsanalyse}\n\n` : ''}
-${data.sections.bijlagen.promotiemateriaal ? `Promotiemateriaal voor naschoolse activiteit:\n${data.sections.bijlagen.promotiemateriaal}\n\n` : ''}
+${data.sections.bijlagen.behoefteonderzoek ? `Behoefteonderzoek:\n${stripHtml(data.sections.bijlagen.behoefteonderzoek)}\n\n` : ''}
+${data.sections.bijlagen.omgevingsanalyse ? `Omgevingsanalyse:\n${stripHtml(data.sections.bijlagen.omgevingsanalyse)}\n\n` : ''}
+${data.sections.bijlagen.promotiemateriaal ? `Promotiemateriaal voor naschoolse activiteit:\n${stripHtml(data.sections.bijlagen.promotiemateriaal)}\n\n` : ''}
         `
       }
     ]
@@ -76,204 +99,126 @@ ${data.sections.bijlagen.promotiemateriaal ? `Promotiemateriaal voor naschoolse 
     ).join('\n\n')
   }
 
-  // Create Word document
-  const createWordDocument = (): Document => {
-    const paragraphs: Paragraph[] = []
+  // Helper: Genereer volledige HTML van het draaiboek (voor Word-export)
+  const generateFullHtml = () => {
+    let html = `<h1>${data.title}</h1>`
+    html += `<p><b>Gemaakt op:</b> ${data.createdAt.toLocaleDateString('nl-NL')}<br/><b>Laatst bijgewerkt:</b> ${data.updatedAt.toLocaleDateString('nl-NL')}</p>`
 
-    // Title
-    paragraphs.push(
-      new Paragraph({
-        children: [new TextRun({ text: data.title, bold: true, size: 32 })],
-        heading: HeadingLevel.TITLE,
-        spacing: { after: 400 }
-      })
-    )
-
-    // Metadata
-    paragraphs.push(
-      new Paragraph({
-        children: [
-          new TextRun({ text: `Gemaakt op: ${data.createdAt.toLocaleDateString('nl-NL')}`, size: 20 }),
-          new TextRun({ text: '\n' }),
-          new TextRun({ text: `Laatst bijgewerkt: ${data.updatedAt.toLocaleDateString('nl-NL')}`, size: 20 })
-        ],
-        spacing: { after: 600 }
-      })
-    )
-
-    // Add sections
-    const addSection = (title: string, content: any, isSubsection = false) => {
-      if (typeof content === 'string' && content.trim()) {
-        paragraphs.push(
-          new Paragraph({
-            children: [new TextRun({ text: title, bold: true, size: isSubsection ? 24 : 28 })],
-            heading: isSubsection ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_2,
-            spacing: { before: 400, after: 200 }
-          })
-        )
-        
-        const lines = content.trim().split('\n')
-        lines.forEach(line => {
-          if (line.trim()) {
-            paragraphs.push(
-              new Paragraph({
-                children: [new TextRun({ text: line.trim(), size: 22 })],
-                spacing: { after: 120 }
-              })
-            )
-          }
-        })
+    const addSection = (title: string, content: string) => {
+      if (content && content.trim()) {
+        html += `<h2>${title}</h2>`
+        html += `<div>${content}</div>`
       }
     }
 
     // 1. Inleiding
-    paragraphs.push(
-      new Paragraph({
-        children: [new TextRun({ text: '1. INLEIDING', bold: true, size: 30 })],
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 600, after: 300 }
-      })
-    )
-
-    addSection('Algemene inleiding', data.sections.inleiding.algemeneInleiding, true)
-    addSection('Verantwoording van de keuze van de activiteiten', data.sections.inleiding.verantwoordingActiviteiten, true)
-    addSection('Verantwoording van de keuze van de externe samenwerkingspartner', data.sections.inleiding.verantwoordingPartner, true)
-    addSection('Doelstelling voor de kinderen', data.sections.inleiding.doelstellingKinderen, true)
-    addSection('Persoonlijke doelstelling voor de projectleden', data.sections.inleiding.persoonlijkeDoelstelling, true)
+    html += '<h2>1. INLEIDING</h2>'
+    addSection('Algemene inleiding', data.sections.inleiding.algemeneInleiding)
+    addSection('Verantwoording van de keuze van de activiteiten', data.sections.inleiding.verantwoordingActiviteiten)
+    addSection('Verantwoording van de keuze van de externe samenwerkingspartner', data.sections.inleiding.verantwoordingPartner)
+    addSection('Doelstelling voor de kinderen', data.sections.inleiding.doelstellingKinderen)
+    addSection('Persoonlijke doelstelling voor de projectleden', data.sections.inleiding.persoonlijkeDoelstelling)
 
     // 2. Planning
-    paragraphs.push(
-      new Paragraph({
-        children: [new TextRun({ text: '2. PLANNING VOOR-TIJDENS-NA DE ACTIVITEIT', bold: true, size: 30 })],
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 600, after: 300 }
-      })
-    )
-
-    addSection('Planning van alle activiteiten in voorbereidingsfase, uitvoeringsfase en nazorgfase', data.sections.planning.fasenPlanning, true)
-    addSection('PR van de naschoolse activiteit', data.sections.planning.prStrategie, true)
-    addSection('Globale schets van dagprogramma voor de deelnemers', data.sections.planning.globaalDagprogramma, true)
-    
-    // 6 W's subsections
-    if (data.sections.planning.sesWs.opening || data.sections.planning.sesWs.dagprogramma || data.sections.planning.sesWs.schema || data.sections.planning.sesWs.afsluiting) {
-      paragraphs.push(
-        new Paragraph({
-          children: [new TextRun({ text: 'Gedetailleerde planning van dagprogramma m.b.v. de 6 W\'s', bold: true, size: 24 })],
-          heading: HeadingLevel.HEADING_3,
-          spacing: { before: 400, after: 200 }
-        })
-      )
-      
-      addSection('Opening', data.sections.planning.sesWs.opening, true)
-      addSection('Dagprogramma', data.sections.planning.sesWs.dagprogramma, true)
-      addSection('Schema met uitgewerkte activiteiten en locatie', data.sections.planning.sesWs.schema, true)
-      addSection('Afsluiting', data.sections.planning.sesWs.afsluiting, true)
-    }
-    
-    addSection('Communicatiematrix', data.sections.planning.communicatiematrix, true)
+    html += '<h2>2. PLANNING VOOR-TIJDENS-NA DE ACTIVITEIT</h2>'
+    addSection('Planning van alle activiteiten', data.sections.planning.fasenPlanning)
+    addSection('PR van de naschoolse activiteit', data.sections.planning.prStrategie)
+    addSection('Globale schets van dagprogramma', data.sections.planning.globaalDagprogramma)
+    addSection('6 W\'s Opening', data.sections.planning.sesWs.opening)
+    addSection('6 W\'s Dagprogramma', data.sections.planning.sesWs.dagprogramma)
+    addSection('6 W\'s Schema', data.sections.planning.sesWs.schema)
+    addSection('6 W\'s Afsluiting', data.sections.planning.sesWs.afsluiting)
+    addSection('Communicatiematrix', data.sections.planning.communicatiematrix)
 
     // 3. Uitwerking
-    paragraphs.push(
-      new Paragraph({
-        children: [new TextRun({ text: '3. GEDETAILLEERDE UITWERKING VAN DE ACTIVITEIT', bold: true, size: 30 })],
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 600, after: 300 }
-      })
-    )
-
-    addSection('Voorbereiding a.d.h.v. een LVF', data.sections.uitwerking.voorbereiding, true)
-    addSection('Opening en afsluiting concreet uitgewerkt', data.sections.uitwerking.openingAfsluiting, true)
-    addSection('Verantwoordelijkheden per onderdeel', data.sections.uitwerking.verantwoordelijkheden, true)
-    addSection('Wedstrijdschema\'s (indien van toepassing)', data.sections.uitwerking.wedstrijdschemas, true)
-    addSection('Spelregels', data.sections.uitwerking.spelregels, true)
-    addSection('Gedetailleerde materiaallijst', data.sections.uitwerking.materiaallijst, true)
+    html += '<h2>3. GEDETAILLEERDE UITWERKING VAN DE ACTIVITEIT</h2>'
+    addSection('Voorbereiding a.d.h.v. een LVF', data.sections.uitwerking.voorbereiding)
+    addSection('Opening en afsluiting concreet uitgewerkt', data.sections.uitwerking.openingAfsluiting)
+    addSection('Verantwoordelijkheden per onderdeel', data.sections.uitwerking.verantwoordelijkheden)
+    addSection('Wedstrijdschema\'s', data.sections.uitwerking.wedstrijdschemas)
+    addSection('Spelregels', data.sections.uitwerking.spelregels)
+    addSection('Gedetailleerde materiaallijst', data.sections.uitwerking.materiaallijst)
 
     // 4. Calamiteitenplan
-    paragraphs.push(
-      new Paragraph({
-        children: [new TextRun({ text: '4. CALAMITEITENPLAN', bold: true, size: 30 })],
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 600, after: 300 }
-      })
-    )
-
-    addSection('Maatregelen n.a.v. risico-analyse', data.sections.calamiteitenplan.maatregelen, true)
-    addSection('Alternatief programma', data.sections.calamiteitenplan.alternatiefProgramma, true)
-    addSection('Plattegrond', data.sections.calamiteitenplan.plattegrond, true)
+    html += '<h2>4. CALAMITEITENPLAN</h2>'
+    addSection('Maatregelen n.a.v. risico-analyse', data.sections.calamiteitenplan.maatregelen)
+    addSection('Alternatief programma', data.sections.calamiteitenplan.alternatiefProgramma)
+    addSection('Plattegrond', data.sections.calamiteitenplan.plattegrond)
 
     // 5. Bijlagen
-    paragraphs.push(
-      new Paragraph({
-        children: [new TextRun({ text: '5. BIJLAGEN', bold: true, size: 30 })],
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 600, after: 300 }
-      })
-    )
+    html += '<h2>5. BIJLAGEN</h2>'
+    addSection('Behoefteonderzoek', data.sections.bijlagen.behoefteonderzoek)
+    addSection('Omgevingsanalyse', data.sections.bijlagen.omgevingsanalyse)
+    addSection('Promotiemateriaal', data.sections.bijlagen.promotiemateriaal)
 
-    addSection('Behoefteonderzoek', data.sections.bijlagen.behoefteonderzoek, true)
-    addSection('Omgevingsanalyse', data.sections.bijlagen.omgevingsanalyse, true)
-    addSection('Promotiemateriaal voor naschoolse activiteit', data.sections.bijlagen.promotiemateriaal, true)
-
-    return new Document({
-      creator: 'Draaiboek Generator',
-      title: data.title,
-      description: 'Professioneel draaiboek voor naschoolse activiteiten',
-      sections: [{
-        properties: {},
-        children: paragraphs
-      }]
-    })
+    return `<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>${html}</body></html>`
   }
 
+  // WORD EXPORT
   const handleWordExport = async () => {
     setIsExporting(true)
     try {
-      const { Packer } = await import('docx')
-      const doc = createWordDocument()
-      const blob = await Packer.toBlob(doc)
-      
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `${data.title.replace(/[^a-zA-Z0-9]/g, '_')}.docx`
-      
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      
+      const html = generateFullHtml()
+      const docxBlob = htmlDocx.asBlob(html)
+      const url = URL.createObjectURL(docxBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${data.title.replace(/\s+/g, '_')}.docx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
       URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Word export failed:', error)
     } finally {
       setIsExporting(false)
     }
   }
 
-  const handlePDFExport = () => {
-    const content = formatDraaiboekText()
-    const printWindow = window.open('', '_blank')
-    
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>${data.title}</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-              h1 { color: #1f4e79; border-bottom: 2px solid #1f4e79; padding-bottom: 10px; }
-              h2 { color: #2f75b5; margin-top: 30px; }
-              h3 { color: #4472c4; margin-top: 20px; }
-              p { margin-bottom: 10px; }
-              pre { background-color: #f8f9fa; padding: 15px; border-radius: 5px; white-space: pre-wrap; }
-            </style>
-          </head>
-          <body>
-            <pre>${content}</pre>
-          </body>
-        </html>
-      `)
-      printWindow.document.close()
-      printWindow.print()
+  // PDF EXPORT
+  const handlePDFExport = async () => {
+    setIsExporting(true)
+    try {
+      const doc = new jsPDF('p', 'pt', 'a4')
+      let y = 40
+      doc.setFontSize(18)
+      doc.text(data.title, 40, y)
+      y += 24
+      doc.setFontSize(10)
+      doc.text(`Gemaakt op: ${data.createdAt.toLocaleDateString('nl-NL')}`, 40, y)
+      y += 14
+      doc.text(`Laatst bijgewerkt: ${data.updatedAt.toLocaleDateString('nl-NL')}`, 40, y)
+      y += 20
+
+      // Helper om HTML te extraheren en tabellen te vinden
+      const html = generateFullHtml()
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = html
+      const sections = Array.from(tempDiv.querySelectorAll('h2, h3, div, table, p'))
+      for (const el of sections) {
+        if (el.tagName === 'H2' || el.tagName === 'H3') {
+          y += 18
+          doc.setFontSize(14)
+          doc.text(el.textContent || '', 40, y)
+          y += 6
+        } else if (el.tagName === 'DIV' || el.tagName === 'P') {
+          doc.setFontSize(10)
+          const text = el.textContent || ''
+          const lines = doc.splitTextToSize(text, 500)
+          doc.text(lines, 40, y)
+          y += lines.length * 12
+        } else if (el.tagName === 'TABLE') {
+          autoTable(doc, {
+            html: el as HTMLTableElement,
+            startY: y,
+            theme: 'grid',
+            styles: { fontSize: 9 },
+            headStyles: { fillColor: [220, 220, 220] },
+          })
+          y = (doc as any).lastAutoTable.finalY + 10
+        }
+      }
+      doc.save(`${data.title.replace(/\s+/g, '_')}.pdf`)
+    } finally {
+      setIsExporting(false)
     }
   }
 
