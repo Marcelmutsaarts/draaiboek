@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import NavigationSidebar from './NavigationSidebar'
 import SectionEditor from './SectionEditor'
 import ExportActions from './ExportActions'
@@ -60,6 +60,70 @@ export default function DraaiboekWizard() {
   const [activeSubsection, setActiveSubsection] = useState<string>('algemeneInleiding')
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleValue, setTitleValue] = useState(initialData.title)
+
+  // Luister naar JSON load events
+  useEffect(() => {
+    const handleLoadData = (event: CustomEvent) => {
+      const loadedData = event.detail
+      // Valideer en merge met initialData voor missing properties
+      const validatedData: DraaiboekData = {
+        id: loadedData.id || crypto.randomUUID(),
+        title: loadedData.title || 'Geladen Draaiboek',
+        createdAt: loadedData.createdAt ? new Date(loadedData.createdAt) : new Date(),
+        updatedAt: new Date(),
+        sections: {
+          inleiding: {
+            algemeneInleiding: loadedData.sections?.inleiding?.algemeneInleiding || '',
+            verantwoordingActiviteiten: loadedData.sections?.inleiding?.verantwoordingActiviteiten || '',
+            verantwoordingPartner: loadedData.sections?.inleiding?.verantwoordingPartner || '',
+            doelstellingKinderen: loadedData.sections?.inleiding?.doelstellingKinderen || '',
+            persoonlijkeDoelstelling: loadedData.sections?.inleiding?.persoonlijkeDoelstelling || ''
+          },
+          planning: {
+            fasenPlanning: loadedData.sections?.planning?.fasenPlanning || '',
+            prStrategie: loadedData.sections?.planning?.prStrategie || '',
+            globaalDagprogramma: loadedData.sections?.planning?.globaalDagprogramma || '',
+            sesWs: {
+              algemeen: loadedData.sections?.planning?.sesWs?.algemeen || '',
+              opening: loadedData.sections?.planning?.sesWs?.opening || '',
+              dagprogramma: loadedData.sections?.planning?.sesWs?.dagprogramma || '',
+              schema: loadedData.sections?.planning?.sesWs?.schema || '',
+              afsluiting: loadedData.sections?.planning?.sesWs?.afsluiting || ''
+            },
+            communicatiematrix: loadedData.sections?.planning?.communicatiematrix || ''
+          },
+          uitwerking: {
+            voorbereiding: loadedData.sections?.uitwerking?.voorbereiding || '',
+            openingAfsluiting: loadedData.sections?.uitwerking?.openingAfsluiting || '',
+            verantwoordelijkheden: loadedData.sections?.uitwerking?.verantwoordelijkheden || '',
+            wedstrijdschemas: loadedData.sections?.uitwerking?.wedstrijdschemas || '',
+            spelregels: loadedData.sections?.uitwerking?.spelregels || '',
+            materiaallijst: loadedData.sections?.uitwerking?.materiaallijst || ''
+          },
+          calamiteitenplan: {
+            maatregelen: loadedData.sections?.calamiteitenplan?.maatregelen || '',
+            alternatiefProgramma: loadedData.sections?.calamiteitenplan?.alternatiefProgramma || '',
+            plattegrond: loadedData.sections?.calamiteitenplan?.plattegrond || ''
+          },
+          bijlagen: {
+            behoefteonderzoek: loadedData.sections?.bijlagen?.behoefteonderzoek || '',
+            omgevingsanalyse: loadedData.sections?.bijlagen?.omgevingsanalyse || '',
+            promotiemateriaal: loadedData.sections?.bijlagen?.promotiemateriaal || ''
+          }
+        },
+        progress: loadedData.progress || 0
+      }
+      
+      setDraaiboekData(validatedData)
+      setTitleValue(validatedData.title)
+      // Reset naar eerste sectie na laden
+      setActiveSection('inleiding')
+      setActiveSubsection('algemeneInleiding')
+    }
+
+    window.addEventListener('loadDraaiboekData', handleLoadData as EventListener)
+    return () => window.removeEventListener('loadDraaiboekData', handleLoadData as EventListener)
+  }, [])
 
   const updateSection = (section: DraaiboekSection, subsection: string, value: string) => {
     setDraaiboekData(prev => ({

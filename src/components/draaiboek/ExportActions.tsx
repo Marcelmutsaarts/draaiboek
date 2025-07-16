@@ -222,8 +222,74 @@ ${data.sections.bijlagen.promotiemateriaal ? `Promotiemateriaal voor naschoolse 
     }
   }
 
+  // JSON OPSLAAN
+  const handleSaveJSON = () => {
+    const jsonData = JSON.stringify(data, null, 2)
+    const blob = new Blob([jsonData], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${data.title.replace(/[^a-zA-Z0-9]/g, '_')}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  // JSON OPENEN
+  const handleOpenJSON = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (file) {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          try {
+            const jsonData = JSON.parse(e.target?.result as string)
+            // Valideer de structuur
+            if (jsonData.title && jsonData.sections) {
+              // Trigger een custom event om de data te laden
+              const event = new CustomEvent('loadDraaiboekData', {
+                detail: jsonData
+              })
+              window.dispatchEvent(event)
+            } else {
+              alert('Ongeldig draaiboek bestand')
+            }
+          } catch (error) {
+            alert('Fout bij het laden van het bestand')
+          }
+        }
+        reader.readAsText(file)
+      }
+    }
+    input.click()
+  }
+
   return (
     <div className="flex space-x-2">
+      <button
+        onClick={handleSaveJSON}
+        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+      >
+        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+        Opslaan
+      </button>
+      
+      <button
+        onClick={handleOpenJSON}
+        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center"
+      >
+        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+        </svg>
+        Openen
+      </button>
+      
       <button
         onClick={handleWordExport}
         disabled={isExporting}
